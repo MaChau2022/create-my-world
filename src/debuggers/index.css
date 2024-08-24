@@ -1,0 +1,48 @@
+.model {
+    display: flex;
+    font-size: 14px;
+}
+
+.data {
+    display: flex;
+    flex-direction: column;
+    width: 200px;
+    margin-right: 8px;
+    margin-bottom: 8px;
+}
+
+.row {
+    display: flex;
+}
+
+
+.row:nth-of-type(odd) {
+    background: #f8f8f8;
+}
+
+.row:nth-of-type(even) {
+    background: #f0f0f0;
+}
+
+.title {
+    background: #f0f0f0;
+}
+
+.children {
+    display: flex;
+    flex-direction: column;
+}
+
+.key {
+    width: 100px;
+}
+
+.value {
+    width: 100px;
+}
+
+.function {
+    text-decoration: underline;
+    cursor: pointer;
+    color: #4d6aff
+}

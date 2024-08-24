@@ -1,0 +1,80 @@
+{
+	"root": true,
+	"parser": "@typescript-eslint/parser",
+	"plugins": [
+		"@typescript-eslint",
+		"import"
+	],
+	"parserOptions": {
+		"project": "./tsconfig.json",
+		"sourceType": "module"
+	},
+	"extends": [
+		"eslint:recommended",
+		"plugin:@typescript-eslint/eslint-recommended",
+		"plugin:@typescript-eslint/recommended",
+		"plugin:import/errors",
+		"plugin:import/warnings",
+		"plugin:import/typescript"
+	],
+	"settings": {
+		"import/resolver": {
+			"webpack": { "config": "webpack.config.js" }
+		}
+	},
+	"rules": {
+		"max-len": ["warn", 100],
+
+		"indent": ["error", 4],
+		"semi": ["error", "always"],
+		"curly": ["error", "multi-line"],
+      
+		"eqeqeq": "error",
+
+		"no-tabs": "off",
+		"no-multi-spaces": "off",
+		"no-underscore-dangle": "off",
+		"no-restricted-syntax": "off",
+		"no-multiple-empty-lines": "error",
+		"no-constant-condition": "off",
+
+		"guard-for-in": "off",
+
+		"keyword-spacing": "error",
+		"key-spacing": "error",
+
+		"comma-dangle": "error",
+		"comma-spacing": "error",
+		"comma-style": "error",
+
+		"dot-location": ["error", "property"],
+
+		"object-property-newline": "error",
+		"object-curly-newline": "error",
+		"object-curly-spacing": ["error", "always"],
+      
+		"array-bracket-spacing": ["error", "always"],
+		"array-element-newline": ["error", "consistent"],
+
+		"brace-style": ["error", "1tbs", { "allowSingleLine": true }],
+		"block-spacing": "error",
+		"arrow-spacing": "error",
+
+		"linebreak-style": ["off", "windows"],
+
+		"import/prefer-default-export": "off",
+		"import/no-unresolved": "error",
+		"import/no-cycle": "warn",
+
+		"function-call-argument-newline": ["error", "consistent"],
+		"function-paren-newline": ["error", "consistent"],
+
+		"@typescript-eslint/no-unused-vars": "warn",
+		"@typescript-eslint/no-explicit-any": "off",
+		"@typescript-eslint/ban-types": "off",
+		"@typescript-eslint/no-this-alias": "warn",
+		"@typescript-eslint/no-namespace": "off",
+		"@typescript-eslint/key-spacing": "error"
+	}
+}
+  

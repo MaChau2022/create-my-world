@@ -1,9 +1,7 @@
 import type { Model } from "../models";
-import { ModelDef } from "./model-def";
-
+import { ModelDef } from "./model/define";
 
 export namespace EventInfo {
-
     export type StateUpdateBefore<
         M extends ModelDef, T
     > = {

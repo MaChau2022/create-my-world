@@ -1,5 +1,5 @@
 import { KeyOf } from "../types";
-import { ModelDef } from "../types/model-def";
+import { ModelDef } from "../types/model/define";
 import { EventInfo } from "../types/event";
 import type { React } from "./react";
 import type { App } from "../app";
@@ -18,6 +18,10 @@ export type UpdateEventDict<M extends ModelDef> = {
     [K in KeyOf<ModelDef.Info<M>>]: Event<
         EventInfo.StateUpdateDone<M, ModelDef.Info<M>[K]>
     >
+}
+
+export namespace Event {
+    
 }
 
 export class Event<E = any> {

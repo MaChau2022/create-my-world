@@ -8,7 +8,7 @@ export type {{MODEL_NAME}}ModelDef = SpecModelDef<{
 }>
 
 
-export class {{MODEL_NAME}}Model extends SpecModel<{{MODEL_NAME}}Def> {
+export class {{MODEL_NAME}}Model extends Model<{{MODEL_NAME}}Def> {
     protected _reactDict = {};
 
     constructor(config: ModelConfig<{{MODEL_NAME}}Def>) {

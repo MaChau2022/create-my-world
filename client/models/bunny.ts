@@ -1,9 +1,9 @@
-import { ModelConfig } from "../types/model";
-import { SpecModelDef } from "../types/model-def";
-import { ModelCode } from "../types/model-code";
+import { ModelConfig } from "../types/model/config";
+import { SpecModelDef } from "../types/model/define";
+import { ModelCode } from "../types/model/code";
 import { Random } from "../utils/random";
-import { SpecModel } from "./specific";
-import { AnimalFeaturesModelDef } from "./animal-feature";
+import { AnimalFeaturesModel } from "./animal-feature";
+import { Model } from ".";
 
 export type BunnyModelDef = SpecModelDef<{
     code: ModelCode.Bunny,
@@ -16,12 +16,11 @@ export type BunnyModelDef = SpecModelDef<{
         timeUpdateDone: void,
     },
     childDict: {
-        features: AnimalFeaturesModelDef
+        features: AnimalFeaturesModel
     }
-    parent: SpecModel,
 }>
 
-export class BunnyModel extends SpecModel<BunnyModelDef> {
+export class BunnyModel extends Model<BunnyModelDef> {
    
     constructor(config: ModelConfig<BunnyModelDef>) {
         super({
@@ -37,7 +36,7 @@ export class BunnyModel extends SpecModel<BunnyModelDef> {
         });
     }
 
-    protected readonly _recover = () => {
+    protected readonly _activate = () => {
         const timer = this.app.root.childDict.timer;
         timer.eventDict.tickBefore.bindReact(
             this._reactDict.timeUpdateDone

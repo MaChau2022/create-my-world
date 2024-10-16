@@ -1,6 +1,6 @@
 import type { App } from "../app";
 import type { Model } from "../models";
-import { ModelDef } from "../types/model-def";
+import { ModelDef } from "../types/model/define";
 import { singleton } from "../utils/singleton";
 
 export const MIN_TICKET = 100;

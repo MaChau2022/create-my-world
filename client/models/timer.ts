@@ -1,7 +1,7 @@
-import { ModelConfig } from "../types/model";
-import { SpecModelDef } from "../types/model-def";
-import { ModelCode } from "../types/model-code";
-import { SpecModel } from "./specific";
+import { ModelConfig } from "../types/model/config";
+import { SpecModelDef } from "../types/model/define";
+import { ModelCode } from "../types/model/code";
+import { Model } from ".";
 
 export type TimerModelDef = SpecModelDef<{
     code: ModelCode.Timer,
@@ -14,7 +14,7 @@ export type TimerModelDef = SpecModelDef<{
     }
 }>
 
-export class TimerModel extends SpecModel<TimerModelDef> {
+export class TimerModel extends Model<TimerModelDef> {
     protected _reactDict = {};
 
     constructor(config: ModelConfig<TimerModelDef>) {

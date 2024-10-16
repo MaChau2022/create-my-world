@@ -1,14 +1,14 @@
-import { ModelConfig } from "../types/model";
-import { ModelCode } from "../types/model-code";
-import { SpecModelDef } from "../types/model-def";
-import { SpecModel } from "./specific";
+import { ModelConfig } from "../types/model/config";
+import { ModelCode } from "../types/model/code";
+import { SpecModelDef } from "../types/model/define";
+import { Model } from ".";
 
 export type PlayerModelDef = SpecModelDef<{
     code: ModelCode.Player,
 }>
 
 
-export class PlayerModel extends SpecModel<PlayerModelDef> {
+export class PlayerModel extends Model<PlayerModelDef> {
     protected _reactDict = {};
     
     constructor(

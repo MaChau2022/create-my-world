@@ -1,7 +1,7 @@
-import { SpecModelDef } from "../types/model-def";
-import { ModelCode } from "../types/model-code";
-import { SpecModel } from "./specific";
-import { ModelConfig } from "../types/model";
+import { SpecModelDef } from "../types/model/define";
+import { ModelCode } from "../types/model/code";
+import { Model } from ".";
+import { ModelConfig } from "../types/model/config";
 import { BunnyModel, BunnyModelDef } from "./bunny";
 import { EventInfo } from "../types/event";
 import { Random } from "../utils/random";
@@ -29,7 +29,7 @@ export type CastratableModelDef = SpecModelDef<{
     parent: AnimalFeaturesModel
 }>
 
-export class CastratableModel extends SpecModel<CastratableModelDef> {
+export class CastratableModel extends Model<CastratableModelDef> {
 
     /** 预期寿命修饰符 */
     private readonly _handleAgeUpdateBefore = (
@@ -56,7 +56,7 @@ export class CastratableModel extends SpecModel<CastratableModelDef> {
         });
     }
 
-    protected readonly _recover = () => {
+    protected readonly _activate = () => {
         if (this.actualInfo.castrated) {
             const animal = this.parent?.parent;
             animal.modifyEventDict.maxAge.bindReact(

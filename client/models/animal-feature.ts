@@ -1,19 +1,19 @@
-import { SpecModelDef } from "../types/model-def";
-import { ModelCode } from "../types/model-code";
-import { SpecModel } from "./specific";
-import { ModelConfig } from "../types/model";
-import type { CastratableModelDef } from "./castratable";
+import { SpecModelDef } from "../types/model/define";
+import { ModelCode } from "../types/model/code";
+import { ModelConfig } from "../types/model/config";
+import type { CastratableModel } from "./castratable";
 import type { BunnyModel } from "./bunny";
+import { Model } from ".";
 
 export type AnimalFeaturesModelDef = SpecModelDef<{
     code: ModelCode.AnimalFeatures,
     childDict: {
-        castratable?: CastratableModelDef
+        castratable?: CastratableModel
     },
     parent: BunnyModel 
 }>
 
-export class AnimalFeaturesModel extends SpecModel<AnimalFeaturesModelDef> {
+export class AnimalFeaturesModel extends Model<AnimalFeaturesModelDef> {
     protected _reactDict = {};
  
     constructor(config: ModelConfig<AnimalFeaturesModelDef>) {

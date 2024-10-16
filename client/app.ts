@@ -4,7 +4,7 @@ import { ArchieveData, ArchieveService } from "./services/archieve";
 import { PerferenceData, PreferenceService } from "./services/perference";
 import { RootModel } from "./models/root";
 import { RenderService } from "./services/render";
-import { AppStatus } from "./types/app-status";
+import { AppStatus } from "./types/status";
 
 export const MAJOR_VERSION = 0;
 export const MINOR_VERSION = 1;

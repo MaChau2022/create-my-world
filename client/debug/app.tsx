@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import type { App } from "../app";
 import { ModelComp } from ".";
 import { ArchieveData } from "../services/archieve";
-import { AppStatus } from "../types/app-status";
+import { AppStatus } from "../types/status";
 
 export function AppComp(props: {
     app: App

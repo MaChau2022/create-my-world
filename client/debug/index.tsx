@@ -4,10 +4,9 @@ import type { App } from "../app";
 import type { Model } from "../models";
 import "./index.css";
 import { Event as ModelEvent, EventDict, ModifyEventDict, UpdateEventDict } from "../utils/event";
-import { ModelDef } from "../types/model-def";
+import { ModelDef } from "../types/model/define";
 import { ReactDict, React as ModelReact } from "../utils/react";
 import { Base } from "../types";
-import { ModelDict, ModelList } from "../types/model";
 import { useIntf } from "./use-intf";
 
 
@@ -17,8 +16,8 @@ export type ModelProps<M extends ModelDef> = {
 }
 
 export type ModelState<M extends ModelDef> = {
-    childList: ModelList<M>,
-    childDict: ModelDict<M>,
+    childList: ModelDef.ChildList<M>,
+    childDict: ModelDef.ChildDict<M>,
     eventDict: EventDict<M>,
     updateEventDict: UpdateEventDict<M>,
     modifyEventDict: ModifyEventDict<M>,
@@ -143,7 +142,7 @@ export function ModelComp<
     }, [ activedReact ]);
 
     useEffect(() => {
-        return model._useState(setState);
+        return model.addSetter(setState);
     }, [ model ]);
 
     if (!state) return null;

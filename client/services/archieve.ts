@@ -1,9 +1,9 @@
 import type { App } from "../app";
 import { RootModelDef } from "../models/root";
-import { PureModelConfig } from "../types/model";
-import { ModelCode } from "../types/model-code";
-import { initReadonlyProxy } from "../utils/proxy";
+import { PureModelConfig } from "../types/model/config";
+import { ModelCode } from "../types/model/code";
 import { singleton } from "../utils/singleton";
+import { Proxy } from "../utils/proxy";
 
 export const ARCHIEVE_SAVE_PATH = 'archieve';
 
@@ -33,7 +33,7 @@ export class ArchieveService {
     // 初始化档案信息
     public readonly initialize = (data: ArchieveData[]) => {
         this._data = data;
-        this.data = initReadonlyProxy(this._data);
+        this.data = Proxy.readonlyDict(this._data);
     };
 
     // 创建新的档案
@@ -87,7 +87,7 @@ export class ArchieveService {
         }
         const slot = this._data[index];
         const path = `${ARCHIEVE_SAVE_PATH}_${slot.id}`;
-        const record = rootModel.serialize();
+        const record = rootModel.bundle;
         // 更新档案信息
         this._data[index] = {
             ...slot,

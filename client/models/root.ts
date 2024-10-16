@@ -1,10 +1,10 @@
-import { ModelConfig, PureModelConfig } from "../types/model";
-import { SpecModelDef } from "../types/model-def";
-import { ModelCode } from "../types/model-code";
-import { BunnyModelDef } from "./bunny";
-import { SpecModel } from "./specific";
-import { TimerModelDef } from "./timer";
-import { GameModelDef } from "./game";
+import { ModelConfig, PureModelConfig } from "../types/model/config";
+import { SpecModelDef } from "../types/model/define";
+import { ModelCode } from "../types/model/code";
+import { BunnyModel, BunnyModelDef } from "./bunny";
+import { TimerModel } from "./timer";
+import { GameModel } from "./game";
+import { Model } from ".";
 
 export type RootModelDef = SpecModelDef<{
     code: ModelCode.Root,
@@ -12,14 +12,14 @@ export type RootModelDef = SpecModelDef<{
         progress: number,
     },
     childDict: {
-        timer: TimerModelDef,
-        game?: GameModelDef
+        timer: TimerModel,
+        game?: GameModel
     },
-    childList: BunnyModelDef[],
+    childList: BunnyModel[],
     parent: undefined,
 }>
 
-export class RootModel extends SpecModel<RootModelDef> {
+export class RootModel extends Model<RootModelDef> {
     protected _reactDict = {};
     
     constructor(config: ModelConfig<RootModelDef>) {
@@ -51,7 +51,7 @@ export class RootModel extends SpecModel<RootModelDef> {
         return child;
     }
 
-    public killCreature(child: SpecModel<BunnyModelDef>) {
+    public killCreature(child: BunnyModel) {
         const index = this._childList.indexOf(child);
         if (index >= 0) {
             this._childList.splice(index, 1);
@@ -67,6 +67,6 @@ export class RootModel extends SpecModel<RootModelDef> {
     }
 
     public readonly recover = () => {
-        this._recRecover();
+        this._activateAll();
     };
 }

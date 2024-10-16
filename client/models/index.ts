@@ -1,72 +1,302 @@
 import { KeyOf } from "../types";
-import { ModelDef } from "../types/model-def";
-import { initAutomicProxy, initReadonlyProxy } from "../utils/proxy";
+import { ModelDef } from "../types/model/define";
 import type { ModelState } from "../debug";
 import { React, ReactDict } from "../utils/react";
 import { 
     Event,
     EventDict, 
     ModifyEventDict,
-    UpdateEventDict 
+    ModifySafeEventDict,
+    SafeEventDict,
+    UpdateEventDict, 
+    UpdateSafeEventDict
 } from "../utils/event";
 import { 
-    BaseModelConfig, 
-    ModelBundle, 
-    ModelBundleDict, 
-    ModelConfigList, 
-    ModelDict, 
-    ModelList 
-} from "../types/model";
+    BaseModelConfig,
+    ModelConfig,
+    PureModelConfig
+} from "../types/model/config";
 import type { App } from "../app";
-import { ModelCode } from "../types/model-code";
+import { ModelBundle } from "../types/model/bundle";
+import { Proxy } from "../utils/proxy";
+import { ModelRegstry } from "../types/model/registry";
 
+export namespace Model {
+    export type Code<M extends Model> = M['code']
+    export type Bundle<M extends Model> = M['bundle']
+    export type Config<M extends Model | undefined> = 
+        M extends Model ? M['config'] : undefined
+}
 
-// 模型层节点
+// 模型基类
 export abstract class Model<
-    M extends ModelDef = ModelDef
+    D extends ModelDef = any
 > {
-    // 外部指针
-    public readonly app: App;
-    public readonly parent: ModelDef.Parent<M>;
-    
     // 唯一标识符
     public readonly id: string;
-    public readonly code: ModelCode;
+    public readonly code: ModelDef.Code<D>;
 
-    // 数据结构
-    protected readonly _originInfo: ModelDef.Info<M>;
-    private readonly _actualInfo: ModelDef.Info<M>;
-    public readonly actualInfo: ModelDef.Info<M>;
+    // 从属相关
+    public readonly app: App;
+    public readonly parent: ModelDef.Parent<D>;
+    protected readonly _childDict: ModelDef.ChildDict<D>;
+    protected readonly _childList: ModelDef.ChildList<D>;
 
-    // 事件依赖关系
-    protected abstract readonly _reactDict: ReactDict<M>;
-    protected readonly _eventDict: EventDict<M>;
-    protected readonly _updateEventDict: UpdateEventDict<M>;
-    protected readonly _modifyEventDict: ModifyEventDict<M>;
+    public readonly childDict: ModelDef.ChildDict<D>;
+    public readonly childList: ModelDef.ChildList<D>;
 
-    // 节点从属关系
-    protected readonly _childDict: ModelDict<M>;
-    protected readonly _childList: ModelList<M>;
+    // 事件相关
+    // 封装的事件触发器
+    public readonly eventDict: SafeEventDict<D>;
+    public readonly updateEventDict: UpdateSafeEventDict<D>;
+    public readonly modifyEventDict: ModifySafeEventDict<D>;
+    
+    // 事件触发器
+    protected readonly _eventDict: EventDict<D>;
+    protected readonly _updateEventDict: UpdateEventDict<D>;
+    protected readonly _modifyEventDict: ModifyEventDict<D>;
+
+    // 事件处理器
+    protected abstract readonly _reactDict: ReactDict<D>;
+
+    // 初始化事件处理器
+    protected readonly _initReactDict = (
+        callback: {
+            [K in KeyOf<ModelDef.ReactDict<D>>]: (
+                event: ModelDef.ReactDict<D>[K]
+            ) => void | ModelDef.ReactDict<D>[K];
+        }
+    ): ReactDict<D> => {
+        return Proxy.automicDict(key => {
+            return new React(
+                this.app,
+                callback[key].bind(this),
+                this._emitSetter
+            );
+        });
+    };
+
+
+    constructor(config: BaseModelConfig<D>) {
+        this.app = config.app;
+        this.parent = config.parent;
+        
+        this.id = config.id || this.app.referenceService.ticket;
+        this.code = config.code;    
+        this.app.referenceService.registerModel(this);
+
+        this._originInfo = Proxy.controlledDict(
+            config.info,
+            this._updateInfo,
+            this._updateInfo
+        );
+        this._actualInfo = { ...this._originInfo };
+        this.actualInfo = Proxy.readonlyDict(this._actualInfo);
+        
+        this.eventDict = Proxy.automicDict(key => this._eventDict[key].safeEvent);
+        this.updateEventDict = Proxy.automicDict(key => this._updateEventDict[key].safeEvent);
+        this.modifyEventDict = Proxy.automicDict(key => this._modifyEventDict[key].safeEvent);
+
+        this._eventDict = Proxy.automicDict(() => new Event(this.app, this._emitSetter));
+        this._updateEventDict = Proxy.automicDict(() => new Event(this.app, this._emitSetter));
+        this._modifyEventDict = Proxy.automicDict(key => new Event(
+            this.app, () => {
+                this._emitSetter();
+                this._updateInfo(key);
+            }
+        ));
+
+
+        // 初始化节点从属关系
+        const childDict = {} as ModelDef.ChildDict<D>;
+        Object.keys(config.childDict).forEach(<
+            K extends KeyOf<ModelDef.ChildDict<D>>
+        >(key: K) => {
+            if (!config.childDict[key]) return;
+            childDict[key] = this.app.factoryService.unserialize({
+                ...config.childDict[key],
+                parent: this,
+                app: this.app
+            }) as any;    
+        });
+        
+        this._childDict = Proxy.controlledDict(
+            childDict,
+            (key, value) => {
+                value._activateAll();
+                this._emitSetter();
+            },
+            (key, value) => {
+                value._destroyAll();
+                this._emitSetter();
+            }
+        );
+        this._childList = Proxy.controlledList(
+            (config.childList || []).map(config => (
+                this.app.factoryService.unserialize({
+                    ...config,
+                    parent: this,
+                    app: this.app
+                })
+            )),
+            value => {
+                value._activateAll();
+                this._emitSetter();
+            },
+            value => {
+                value._destroyAll();
+                this._emitSetter();
+            }
+        );
+        this.childDict = Proxy.readonlyDict(this._childDict);
+        this.childList = Proxy.readonlyDict(this._childList);
+
+        // 初始化调试器
+        this._setterList = [];
+    }
+
+    // 数据层相关
+    protected readonly _originInfo: ModelDef.Info<D>;
+    private readonly _actualInfo: ModelDef.Info<D>;
+    public readonly actualInfo: ModelDef.Info<D>;
+
+    private readonly _updateInfo = (
+        key: KeyOf<ModelDef.Info<D>>
+    ) => {
+        console.log('update info', key);
+        const prev = this._actualInfo[key];
+        const current = this._originInfo[key];
+        const result = this._modifyEventDict[key].emitEvent({
+            target: this,
+            prev: current,
+            next: current
+        });
+        if (!result) return;
+        const next = result.next;
+        if (next && prev !== next) {
+            this._actualInfo[key] = next;
+            this._updateEventDict[key].emitEvent({
+                target: this,
+                prev,
+                next
+            });
+            this._emitSetter();
+        }
+    };
+
+
+    // 初始化参数
+    public get config(): PureModelConfig<D> {
+        const childDict = {} as ModelConfig.ChildDict<D>;
+        for (const key in this._childDict) {
+            const child = this._childDict[key];
+            if (!child) continue;
+            childDict[key] = child.config as any;
+        }
+        return {
+            code: this.code,
+            info: this._originInfo,
+            childDict,
+            childList: this._childList.map(child => child.config) as any
+        };
+    }
+
+    // 序列化参数
+    public get bundle(): ModelBundle<D> {
+        const childDict = {} as ModelBundle.ChildDict<D>;
+        Object.keys(this._childDict).forEach((
+            key: KeyOf<ModelDef.ChildDict<D>>
+        ) => {
+            const child = this._childDict[key];
+            if (!child) return;
+            childDict[key] = child.bundle;
+        });
+        return {
+            id: this.id,
+            code: this.code,
+            info: this._originInfo,
+            childDict,
+            childList: this._childList.map(child => child.bundle)
+        };
+    }
+    
+    // 生命周期相关
+    private _isActivated?: boolean;
+    private _isDestroyed?: boolean;
+    
+    protected readonly _activate = () => {};
+    protected readonly _destroy = () => {};
+
+    // 节点复位
+    protected readonly _activateAll = () => {
+        if (this._isActivated) throw new Error();
+        this._activate();
+        // 复位子节点
+        for (const child of this._childList) {
+            child._activateAll();
+        }
+        for (const key in this._childDict) {
+            const child = this._childDict[key];
+            child._activateAll();
+        }
+        this._isActivated = true;
+    };
+
+    // 节点销毁
+    private readonly _destroyAll = () => {
+        if (this._isDestroyed) throw new Error();
+        // 销毁子节点
+        for (const child of this._childList) {
+            child._destroyAll();
+        }
+        for (const key in this._childDict) {
+            const child = this._childDict[key];
+            child._destroyAll();
+        }
+        // 事件解除绑定
+        for (const key in this._reactDict) {
+            const react = this._reactDict[key];
+            react.destroy();
+        }
+        for (const key in this._eventDict) {
+            const event = this._eventDict[key];
+            event.destroy();
+        }
+        for (const key in this._updateEventDict) {
+            const event = this._updateEventDict[key];
+            event.destroy();
+        }
+        for (const key in this._modifyEventDict) {
+            const event = this._modifyEventDict[key];
+            event.destroy();
+        }
+        this._destroy();
+        this.app.referenceService.unregisterModel(this);
+        this._isDestroyed = true;
+    };
+
 
     // 调试器相关
-    private readonly _setterList: Array<(data: ModelState<M>) => void>;
-
-    // 初始化
-    private _isActived?: boolean;
-
-    public readonly _useState = (setter: (data: ModelState<M>) => void) => {
-        this._setterList.push(setter);
-        this._setState();
+    private readonly _setterList: Array<(data: ModelState<D>) => void>;
+    
+    // 挂载调试器
+    public readonly addSetter = (
+        hook: (data: ModelState<D>) => void
+    ) => {
+        this._setterList.push(hook);
+        this._emitSetter();
+        // 卸载调试器
         return () => {
-            const index = this._setterList.indexOf(setter);
+            const index = this._setterList.indexOf(hook);
             if (index < 0) throw new Error();
             this._setterList.splice(index, 1);
         };
     };
-
-    private readonly _setState = () => {
-        for (const useModel of this._setterList) {
-            useModel({
+    
+    // 触发调试器
+    private readonly _emitSetter = () => {
+        for (const hook of this._setterList) {
+            hook({
                 childDict: this._childDict,
                 childList: this._childList,
                 eventDict: this._eventDict,
@@ -78,261 +308,18 @@ export abstract class Model<
         }
     };
 
-    protected readonly _initReactDict = (
-        callback: {
-            [K in KeyOf<ModelDef.ReactDict<M>>]: (
-                event: ModelDef.ReactDict<M>[K]
-            ) => void | ModelDef.ReactDict<M>[K];
-        }
-    ): ReactDict<M> => {
-        return initAutomicProxy(key => {
-            return new React(
-                this.app,
-                callback[key].bind(this),
-                this._setState
-            );
-        });
+
+    protected readonly _unserialize = <
+        C extends ModelDef.Code<M>,
+        M extends ModelDef
+    >(
+        config: PureModelConfig<M> & { code: C }
+    ): InstanceType<ModelRegstry[C]> => {
+        return this.app.factoryService.unserialize({
+            ...config,
+            parent: this,
+            app: this.app
+        }) as InstanceType<ModelRegstry[ModelDef.Code<M>]>;
     };
-
-    protected readonly _initChildList = (
-        config: ModelConfigList<M>
-    ) => {
-        const childList = (config).map(config => (
-            this.app.factoryService.unserialize({
-                ...config,
-                parent: this,
-                app: this.app
-            })
-        ));
-        childList.splice = (index, removeCount = 1, ...addList: Model[]) => {
-            const removeList = childList.slice(index, index + removeCount);
-            const result = Array.prototype.splice.call(
-                childList, 
-                index,
-                removeCount,
-                ...addList
-            );
-            addList.forEach(item => {
-                item._recRecover();
-                this._setState();
-            });
-            removeList.forEach(item => {
-                item._recDestroy();
-                this._setState();
-            });
-            return result;
-        };
-        childList.push = (...items) => {
-            const result = Array.prototype.push.apply(
-                childList, 
-                items
-            );
-            items.forEach(item => {
-                item._recRecover();
-                this._setState();
-            });
-            return result;
-        };
-        childList.pop = () => {
-            const item = childList.pop();
-            if (item) {
-                item._recDestroy();
-                this._setState();
-            }
-            return item;
-        };
-        childList.shift = () => {
-            const item = childList.shift();
-            if (item) {
-                item._recDestroy();
-                this._setState();
-            }
-            return item;
-        };
-        childList.unshift = (...items) => {
-            const result = Array.prototype.unshift.apply(
-                childList, 
-                items
-            );
-            items.forEach(item => {
-                item._recRecover();
-                this._setState();
-            });
-            return result;
-        };
-        return childList;
-    };
-    
-    constructor(config: BaseModelConfig<M>) {
-
-        // 初始化外部指针
-        this.app = config.app;
-        this.parent = config.parent;
-
-        // 初始化唯一标识符
-        this.id = config.id || this.app.referenceService.ticket;
-        this.code = config.code;    
-        this.app.referenceService.registerModel(this);
-
-        // 初始化数据结构
-        this._originInfo = new Proxy(
-            config.info, {
-                set: (target, key: KeyOf<ModelDef.Info<M>>, value) => {
-                    target[key] = value;
-                    this._updateInfo(key);
-                    return true;
-                }
-            }
-        );
-        this._actualInfo = { ...this._originInfo };
-        this.actualInfo = initReadonlyProxy(this._actualInfo);
-
-
-        // 初始化事件依赖关系
-        this._eventDict = initAutomicProxy(
-            (key) => {
-                console.log(this.constructor.name, key);
-                return new Event(
-                    this.app,
-                    this._setState
-                );
-            }
-        );
-        this._updateEventDict = initAutomicProxy(
-            () => new Event(
-                this.app,
-                this._setState
-            )
-        );
-        this._modifyEventDict = initAutomicProxy(
-            key => new Event(
-                this.app, 
-                () => {
-                    this._setState();
-                    this._updateInfo(key);
-                }
-            )
-        );
-
-        // 初始化节点从属关系
-        const childDict = {} as ModelDict<M>;
-        Object.keys(config.childDict).forEach((
-            key: KeyOf<ModelDict<M>>
-        ) => {
-            if (!config.childDict[key]) return;
-            childDict[key] = this.app.factoryService.unserialize({
-                ...config.childDict[key],
-                parent: this,
-                app: this.app
-            });    
-        });
-        this._childDict = new Proxy(childDict, {
-            set: <K extends KeyOf<ModelDict<M>>>(
-                target: ModelDict<M>, 
-                key: K, 
-                value: ModelDict<M>[K]
-            ) => {
-                target[key] = value;
-                value._recRecover();
-                this._setState();
-                return true;
-            },
-            deleteProperty: (target, key: KeyOf<ModelDict<M>>) => {
-                const value = target[key];
-                value._recDestroy();
-                delete target[key];
-                this._setState();
-                return true;
-            }
-        });
-        this._childList = this._initChildList(config.childList || []);
-
-        // 初始化调试器
-        this._setterList = [];
-    }
-
-    // 更新状态
-    private readonly _updateInfo = (
-        key: KeyOf<ModelDef.Info<M>>
-    ) => {
-        const prev = this._actualInfo[key];
-        const current = this._originInfo[key];
-        const event = {
-            target: this,
-            prev: current,
-            next: current
-        };
-        this._modifyEventDict[key].emitEvent(event);
-        const next = event.next;
-        if (prev !== next) {
-            this._actualInfo[key] = next;
-            this._updateEventDict[key].emitEvent(event);
-            this._setState();
-        }
-    };
-
-
-    // 序列化模型层节点
-    public readonly serialize = (): ModelBundle<M> => {
-        // 序列化事件触发器/处理器字典
-        // 序列化从属节点字典/列表
-        const childDict = {} as ModelBundleDict<M>;
-        Object.keys(this._childDict).forEach((
-            key: KeyOf<ModelDict<M>>
-        ) => {
-            const child = this._childDict[key];
-            childDict[key] = child.serialize();
-        });
-
-        // 返回节点序列化结果
-        return {
-            id: this.id,
-            code: this.code,
-            info: this._originInfo,
-            childDict,
-            childList: this._childList.map(child => (
-                child.serialize()
-            ))
-        };
-    };
-
-    // 执行初始化函数
-    protected readonly _recover = () => {};
-    protected readonly _recRecover = () => {
-        if (this._isActived) return;
-        this._recover();
-        for (const child of this._childList) {
-            child._recRecover();
-        }
-        for (const key in this._childDict) {
-            const child = this._childDict[key];
-            child._recRecover();
-        }
-        this._isActived = true;
-    };
-
-    // 执行析构函数
-    protected readonly _destroy = () => {};
-    private readonly _recDestroy = () => {
-        console.log('destroy', this.id);
-        for (const child of this._childList) {
-            child._recDestroy();
-        }
-        for (const key in this._childDict) {
-            const child = this._childDict[key];
-            child._recDestroy();
-        }
-        for (const key in this._reactDict) {
-            const react = this._reactDict[key];
-            react.destroy();
-        }
-        for (const key in this._eventDict) {
-            const event = this._eventDict[key];
-            event.destroy();
-        }
-        this.app.referenceService.unregisterModel(this);
-        this._destroy();
-    };
-
 }
 
